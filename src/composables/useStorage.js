@@ -7,7 +7,7 @@ function generateId() {
 const defaultData = {
   currentWheelId: null,
   wheels: [],
-  theme: 'neon',
+  theme: 'clean',
   history: []
 }
 
