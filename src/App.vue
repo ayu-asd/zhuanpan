@@ -133,19 +133,17 @@ function switchTheme(theme) {
 function createNewWheel() {
   const count = wheelStore.wheels.length + 1
   wheelStore.createWheel(`转盘 ${count}`, [])
-  // 同步到云端
   if (auth.user.value) {
     cloud.pushWheels(wheelStore.getLocalData().wheels).catch(console.error)
   }
 }
 
-// 首次登录：同步本地数据到云端（一次性）
 async function syncAllFromCloud() {
   if (!auth.user.value) return
   
   const { wheels: cloudWheels, history: cloudHistory } = await cloud.syncAll()
   
-  // 如果云端为空，推送本地数据
+  // 首次登录：如果云端为空，推送本地数据
   if (cloudWheels.length === 0 && wheelStore.getLocalData().wheels.length > 0) {
     await cloud.pushWheels(wheelStore.getLocalData().wheels)
   }
@@ -153,43 +151,9 @@ async function syncAllFromCloud() {
     await cloud.pushHistory(wheelStore.getLocalData().history)
   }
   
-  // 无论哪种情况，都使用云端数据
+  // 使用云端数据
   wheelStore.setWheels(cloudWheels)
   wheelStore.setHistory(cloudHistory)
-}
-
-function mergeWheels(local, cloud) {
-  const map = new Map(cloud.map(w => [w.id, w]))
-  local.forEach(item => {
-    const existing = map.get(item.id)
-    if (!existing) {
-      map.set(item.id, item)
-    } else {
-      const localTime = new Date(item.updatedAt || item.updated_at || 0)
-      const cloudTime = new Date(existing.updatedAt || existing.updated_at || 0)
-      if (localTime > cloudTime) {
-        map.set(item.id, item)
-      }
-    }
-  })
-  return [...map.values()]
-}
-
-function mergeHistory(local, cloud) {
-  const map = new Map(cloud.map(h => [h.id, h]))
-  local.forEach(item => {
-    const existing = map.get(item.id)
-    if (!existing) {
-      map.set(item.id, item)
-    } else {
-      const localTime = new Date(item.timestamp || 0)
-      const cloudTime = new Date(existing.timestamp || 0)
-      if (localTime > cloudTime) {
-        map.set(item.id, item)
-      }
-    }
-  })
-  return [...map.values()]
 }
 
 function handleLogout() {
@@ -198,40 +162,54 @@ function handleLogout() {
 
 async function handleAddItems(textLines) {
   wheelStore.addItems(textLines)
-  await cloud.pushWheels(wheelStore.getLocalData().wheels)
+  if (auth.user.value) {
+    await cloud.pushWheels(wheelStore.getLocalData().wheels)
+  }
 }
 
 async function handleRemoveItem(itemId) {
   wheelStore.removeItem(itemId)
-  await cloud.pushWheels(wheelStore.getLocalData().wheels)
+  if (auth.user.value) {
+    await cloud.pushWheels(wheelStore.getLocalData().wheels)
+  }
 }
 
 async function handleClearAll() {
   wheelStore.clearAllItems()
-  await cloud.pushWheels(wheelStore.getLocalData().wheels)
+  if (auth.user.value) {
+    await cloud.pushWheels(wheelStore.getLocalData().wheels)
+  }
 }
 
 async function handleSave(name) {
   const wheel = wheelStore.currentWheel
   if (wheel) {
     wheelStore.saveCurrentWheel(name || wheel.name)
-    await cloud.pushWheels(wheelStore.getLocalData().wheels)
+    if (auth.user.value) {
+      await cloud.pushWheels(wheelStore.getLocalData().wheels)
+    }
   }
 }
 
 async function handleLoad(id) {
   wheelStore.loadWheel(id)
-  await cloud.pushWheels(wheelStore.getLocalData().wheels)
+  if (auth.user.value) {
+    await cloud.pushWheels(wheelStore.getLocalData().wheels)
+  }
 }
 
 async function handleRename(id, name) {
   wheelStore.renameWheel(id, name)
-  await cloud.pushWheels(wheelStore.getLocalData().wheels)
+  if (auth.user.value) {
+    await cloud.pushWheels(wheelStore.getLocalData().wheels)
+  }
 }
 
 async function handleDuplicate(id) {
   wheelStore.duplicateWheel(id)
-  await cloud.pushWheels(wheelStore.getLocalData().wheels)
+  if (auth.user.value) {
+    await cloud.pushWheels(wheelStore.getLocalData().wheels)
+  }
 }
 
 async function handleDelete(id) {
@@ -241,12 +219,16 @@ async function handleDelete(id) {
     showResult.value = false
   }
   wheelStore.deleteWheel(id)
-  await cloud.pushWheels(wheelStore.getLocalData().wheels)
+  if (auth.user.value) {
+    await cloud.pushWheels(wheelStore.getLocalData().wheels)
+  }
 }
 
 async function handleClearHistory() {
   wheelStore.clearHistory()
-  await cloud.pushHistory([])
+  if (auth.user.value) {
+    await cloud.pushHistory([])
+  }
 }
 
 async function handleSpin() {
@@ -263,25 +245,22 @@ async function handleSpin() {
       
       const wheel = wheelStore.currentWheel
       if (wheel) {
-        // 已登录时：直接写云端
+        const newEntry = {
+          id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+          wheelId: wheel.id,
+          wheelName: wheel.name,
+          itemText: result.text,
+          timestamp: new Date().toISOString()
+        }
+        
         if (auth.user.value) {
-          const newEntry = {
-            id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
-            wheelId: wheel.id,
-            wheelName: wheel.name,
-            itemText: result.text,
-            timestamp: new Date().toISOString()
-          }
+          // 已登录：写云端
           const newHistory = [...wheelStore.history, newEntry]
           await cloud.pushHistory(newHistory)
           wheelStore.setHistory(newHistory)
         } else {
           // 未登录：只更新本地
-          wheelStore.addHistory({
-            wheelId: wheel.id,
-            wheelName: wheel.name,
-            itemText: result.text
-          })
+          wheelStore.addHistory(newEntry)
         }
       }
     }
@@ -293,7 +272,6 @@ async function handleSpin() {
 async function handleRemoveTemp(itemId) {
   if (!itemId) return
   wheelStore.removeItemTemp(itemId)
-  // 临时移除也需要同步到云端
   if (auth.user.value) {
     await cloud.pushWheels(wheelStore.getLocalData().wheels)
   }
@@ -302,7 +280,6 @@ async function handleRemoveTemp(itemId) {
 function handleRemoveSave(itemId) {
   if (!itemId) return
   wheelStore.removeItemAndSave(itemId)
-  // 登录时同步到云端
   if (auth.user.value) {
     cloud.pushWheels(wheelStore.getLocalData().wheels).catch(console.error)
   }

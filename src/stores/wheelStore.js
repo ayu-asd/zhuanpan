@@ -1,9 +1,10 @@
-import { reactive } from 'vue'
+import { reactive, computed } from 'vue'
 import { useStorage } from '../composables/useStorage.js'
 import { themes } from '../styles/themes.js'
+import { useAuth } from '../composables/useAuth.js'
 
 const storage = useStorage()
-
+const auth = useAuth()
 const data = reactive(storage.getData())
 
 function findCurrentWheel() {
@@ -41,7 +42,7 @@ export const wheelStore = {
 
   loadWheel(id) {
     data.currentWheelId = id
-    storage.setCurrentWheel(id)
+    if (!auth.user.value) storage.setCurrentWheel(id)
   },
 
   createWheel(name, items = []) {
@@ -135,15 +136,10 @@ export const wheelStore = {
       timestamp: new Date().toISOString()
     })
     if (h.length > 100) h.length = 100
-    // 持久化到 localStorage（仅未登录时使用）
-    if (!window.__isUserLoggedIn) {
-      storage.persistData({ ...data, history: data.history })
-    }
   },
 
   clearHistory() {
     data.history = []
-    storage.clearHistory()
   },
 
   setWheels(wheels) {
@@ -159,7 +155,6 @@ export const wheelStore = {
     if (!exists) {
       data.currentWheelId = clean.length > 0 ? clean[0].id : null
     }
-    // 不写入 localStorage（由云端管理）
   },
 
   setHistory(history) {
@@ -172,10 +167,6 @@ export const wheelStore = {
       timestamp: h.timestamp || new Date().toISOString()
     }))
     data.history = clean.slice(0, 100)
-    // 登录时不持久化到 localStorage
-    if (!auth.user.value) {
-      storage.persistData({ ...data, history: data.history })
-    }
   },
 
   getLocalData() {
