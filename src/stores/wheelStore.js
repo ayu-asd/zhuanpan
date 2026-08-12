@@ -141,6 +141,39 @@ export const wheelStore = {
   clearHistory() {
     storage.clearHistory()
     data.history = []
+  },
+
+  setWheels(wheels) {
+    const clean = wheels.map(w => ({
+      ...w,
+      items: (w.items || []).map(item => ({
+        id: item.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+        text: item.text || ''
+      }))
+    }))
+    data.wheels = clean
+    const exists = clean.some(w => w.id === data.currentWheelId)
+    if (!exists) {
+      data.currentWheelId = clean.length > 0 ? clean[0].id : null
+    }
+    storage.persistData({ ...data, wheels: clean })
+  },
+
+  setHistory(history) {
+    const clean = history.map(h => ({
+      id: h.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+      wheelId: h.wheelId || '',
+      wheelName: h.wheelName || '',
+      itemId: h.itemId || '',
+      itemText: h.itemText || '',
+      timestamp: h.timestamp || new Date().toISOString()
+    }))
+    data.history = clean.slice(0, 100)
+    storage.persistData({ ...data, history: data.history })
+  },
+
+  getLocalData() {
+    return { wheels: [...data.wheels], history: [...(data.history || [])] }
   }
 }
 

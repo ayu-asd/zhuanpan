@@ -18,6 +18,11 @@
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
         </a>
+        <UserMenu
+          :user="auth.user.value"
+          @login="auth.login"
+          @logout="handleLogout"
+        />
         <ThemeSwitch
           :current-theme="wheelStore.currentTheme"
           @select="switchTheme"
@@ -62,23 +67,23 @@
         v-if="currentWheel"
         :items="currentWheel.items"
         @add-item="handleAddItems"
-        @remove-item="wheelStore.removeItem"
-        @clear-all="wheelStore.clearAllItems"
+        @remove-item="handleRemoveItem"
+        @clear-all="handleClearAll"
       />
 
       <WheelManager
         :wheels="wheelStore.wheels"
         :current-wheel-id="wheelStore.currentWheel?.id || null"
         @save="handleSave"
-        @load="wheelStore.loadWheel"
-        @rename="wheelStore.renameWheel"
-        @duplicate="wheelStore.duplicateWheel"
+        @load="handleLoad"
+        @rename="handleRename"
+        @duplicate="handleDuplicate"
         @delete="handleDelete"
       />
 
       <HistoryPanel
         :items="wheelStore.history"
-        @clear="wheelStore.clearHistory"
+        @clear="handleClearHistory"
       />
     </aside>
 
@@ -93,14 +98,20 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { wheelStore, applyTheme } from './stores/wheelStore.js'
+import { useAuth } from './composables/useAuth.js'
+import { useCloud } from './composables/useCloud.js'
 import WheelCanvas from './components/WheelCanvas.vue'
 import ItemManager from './components/ItemManager.vue'
 import SpinResult from './components/SpinResult.vue'
 import WheelManager from './components/WheelManager.vue'
 import ThemeSwitch from './components/ThemeSwitch.vue'
 import HistoryPanel from './components/HistoryPanel.vue'
+import UserMenu from './components/UserMenu.vue'
+
+const auth = useAuth()
+const cloud = useCloud()
 
 const wheelCanvasRef = ref(null)
 const showResult = ref(false)
@@ -124,8 +135,73 @@ function createNewWheel() {
   wheelStore.createWheel(`转盘 ${count}`, [])
 }
 
-function handleAddItems(textLines) {
+async function syncAllFromCloud() {
+  if (!auth.user.value) return
+  const wheels = await cloud.syncWheels(wheelStore.getLocalData().wheels)
+  wheelStore.setWheels(wheels)
+  const history = await cloud.syncHistory(wheelStore.getLocalData().history)
+  wheelStore.setHistory(history)
+}
+
+function handleLogin() {
+  auth.login()
+}
+
+function handleLogout() {
+  auth.logout()
+}
+
+async function handleAddItems(textLines) {
   wheelStore.addItems(textLines)
+  await cloud.pushWheels(wheelStore.getLocalData().wheels)
+}
+
+async function handleRemoveItem(itemId) {
+  wheelStore.removeItem(itemId)
+  await cloud.pushWheels(wheelStore.getLocalData().wheels)
+}
+
+async function handleClearAll() {
+  wheelStore.clearAllItems()
+  await cloud.pushWheels(wheelStore.getLocalData().wheels)
+}
+
+async function handleSave(name) {
+  const wheel = wheelStore.currentWheel
+  if (wheel) {
+    wheelStore.saveCurrentWheel(name || wheel.name)
+    await cloud.pushWheels(wheelStore.getLocalData().wheels)
+  }
+}
+
+async function handleLoad(id) {
+  wheelStore.loadWheel(id)
+  await cloud.pushWheels(wheelStore.getLocalData().wheels)
+}
+
+async function handleRename(id, name) {
+  wheelStore.renameWheel(id, name)
+  await cloud.pushWheels(wheelStore.getLocalData().wheels)
+}
+
+async function handleDuplicate(id) {
+  wheelStore.duplicateWheel(id)
+  await cloud.pushWheels(wheelStore.getLocalData().wheels)
+}
+
+async function handleDelete(id) {
+  const wheel = wheelStore.currentWheel
+  if (wheel && wheel.id === id) {
+    lastResult.value = null
+    showResult.value = false
+  }
+  wheelStore.deleteWheel(id)
+  await cloud.pushWheels(wheelStore.getLocalData().wheels)
+}
+
+async function handleClearHistory() {
+  wheelStore.clearHistory()
+  await cloud.pushHistory([])
 }
 
 async function handleSpin() {
@@ -147,6 +223,14 @@ async function handleSpin() {
           itemId: result.id,
           itemText: result.text
         })
+        await cloud.pushHistory([
+          {
+            wheelId: wheel.id,
+            wheelName: wheel.name,
+            itemId: result.id,
+            itemText: result.text
+          }
+        ])
       }
     }
   } finally {
@@ -164,19 +248,11 @@ function handleRemoveSave(itemId) {
   wheelStore.removeItemAndSave(itemId)
 }
 
-function handleSave(name) {
-  const wheel = wheelStore.currentWheel
-  if (wheel) {
-    wheelStore.saveCurrentWheel(name || wheel.name)
+onMounted(async () => {
+  auth.checkLoginFromUrl()
+  await auth.loadUser()
+  if (auth.user.value) {
+    await syncAllFromCloud()
   }
-}
-
-function handleDelete(id) {
-  const wheel = wheelStore.currentWheel
-  if (wheel && wheel.id === id) {
-    lastResult.value = null
-    showResult.value = false
-  }
-  wheelStore.deleteWheel(id)
-}
+})
 </script>
