@@ -293,6 +293,10 @@ function handleRemoveTemp(itemId) {
 function handleRemoveSave(itemId) {
   if (!itemId) return
   wheelStore.removeItemAndSave(itemId)
+  // 登录时同步到云端
+  if (auth.user.value) {
+    cloud.pushWheels(wheelStore.getLocalData().wheels).catch(console.error)
+  }
 }
 
 onMounted(async () => {
