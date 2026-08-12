@@ -16,19 +16,18 @@ function getHeader(req, name) {
 }
 
 function getBaseUrl(req) {
+  const proto = getHeader(req, 'x-forwarded-proto') || 'https'
+  const host = getHeader(req, 'x-forwarded-host') || getHeader(req, 'host')
+  if (host) return `${proto}://${host}`
   const configured = process.env.AUTH_REDIRECT_URI
   if (configured) {
     const u = new URL(configured)
     return `${u.protocol}//${u.host}`
   }
-  const proto = getHeader(req, 'x-forwarded-proto') || 'https'
-  const host = getHeader(req, 'x-forwarded-host') || getHeader(req, 'host')
-  return `${proto}://${host}`
+  return 'https://localhost'
 }
 
 function getRedirectUri(req) {
-  const configured = process.env.AUTH_REDIRECT_URI
-  if (configured) return configured
   return `${getBaseUrl(req)}/api/auth`
 }
 
