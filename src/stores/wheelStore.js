@@ -136,6 +136,7 @@ export const wheelStore = {
       timestamp: new Date().toISOString()
     })
     if (h.length > 100) h.length = 100
+    storage.saveHistory(h)
   },
 
   clearHistory() {

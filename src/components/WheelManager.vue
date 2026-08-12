@@ -2,7 +2,7 @@
   <div class="panel-card">
     <div class="panel-title">
       <span>转盘管理</span>
-      <button class="btn btn-primary btn-sm" @click="saveCurrent">
+      <button v-if="showSave" class="btn btn-primary btn-sm" @click="saveCurrent">
         保存
       </button>
     </div>
@@ -66,7 +66,8 @@ import { ref, computed, nextTick } from 'vue'
 
 const props = defineProps({
   wheels: { type: Array, default: () => [] },
-  currentWheelId: { type: String, default: null }
+  currentWheelId: { type: String, default: null },
+  showSave: { type: Boolean, default: true }
 })
 
 const emit = defineEmits([

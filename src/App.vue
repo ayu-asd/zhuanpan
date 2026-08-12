@@ -74,6 +74,7 @@
       <WheelManager
         :wheels="wheelStore.wheels"
         :current-wheel-id="wheelStore.currentWheel?.id || null"
+        :show-save="!auth.user.value"
         @save="handleSave"
         @load="handleLoad"
         @rename="handleRename"
