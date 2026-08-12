@@ -172,8 +172,10 @@ export const wheelStore = {
       timestamp: h.timestamp || new Date().toISOString()
     }))
     data.history = clean.slice(0, 100)
-    // 持久化到 localStorage
-    storage.persistData({ ...data, history: data.history })
+    // 登录时不持久化到 localStorage
+    if (!auth.user.value) {
+      storage.persistData({ ...data, history: data.history })
+    }
   },
 
   getLocalData() {

@@ -133,6 +133,10 @@ function switchTheme(theme) {
 function createNewWheel() {
   const count = wheelStore.wheels.length + 1
   wheelStore.createWheel(`转盘 ${count}`, [])
+  // 同步到云端
+  if (auth.user.value) {
+    cloud.pushWheels(wheelStore.getLocalData().wheels).catch(console.error)
+  }
 }
 
 // 首次登录：同步本地数据到云端（一次性）
@@ -286,9 +290,13 @@ async function handleSpin() {
   }
 }
 
-function handleRemoveTemp(itemId) {
+async function handleRemoveTemp(itemId) {
   if (!itemId) return
   wheelStore.removeItemTemp(itemId)
+  // 临时移除也需要同步到云端
+  if (auth.user.value) {
+    await cloud.pushWheels(wheelStore.getLocalData().wheels)
+  }
 }
 
 function handleRemoveSave(itemId) {
