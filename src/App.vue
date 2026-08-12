@@ -144,27 +144,14 @@ async function syncAllFromCloud() {
   // 合并本地数据到云端（本地优先）
   const localData = wheelStore.getLocalData()
   const mergedWheels = mergeWheels(localData.wheels, cloudWheels)
+  const mergedHistory = mergeHistory(localData.history, cloudHistory)
   
-  // 推送合并结果到云端
+  // 推送合并结果到云端（覆盖策略）
   if (mergedWheels.length > 0) {
     await cloud.pushWheels(mergedWheels)
   }
-  
-  // 合并历史记录
-  const mergedHistory = mergeHistory(localData.history, cloudHistory)
-  
-  // 首次同步：直接覆盖云端历史（避免追加导致的重复）
-  // 后续操作：追加到云端
-  if (cloudHistory.length === 0) {
-    // 云端为空，直接覆盖
+  if (mergedHistory.length > 0) {
     await cloud.pushHistory(mergedHistory)
-  } else if (mergedHistory.length > 0) {
-    // 云端已有历史，只推本地新增的
-    const cloudIds = new Set(cloudHistory.map(h => h.id))
-    const newHistory = mergedHistory.filter(h => !cloudIds.has(h.id))
-    if (newHistory.length > 0) {
-      await cloud.pushHistory(newHistory)
-    }
   }
   
   // 使用云端数据
@@ -284,13 +271,9 @@ async function handleSpin() {
           itemText: result.text
         })
         
-        // 已登录时同步到云端
+        // 已登录时同步到云端（覆盖策略）
         if (auth.user.value) {
-          await cloud.pushHistory([{
-            wheelId: wheel.id,
-            wheelName: wheel.name,
-            itemText: result.text
-          }])
+          await cloud.pushHistory(wheelStore.getLocalData().history)
         }
       }
     }

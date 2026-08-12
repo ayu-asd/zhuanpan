@@ -28,18 +28,16 @@ export async function getHistory(userId) {
   return (await kv.get(HISTORY_KEY(userId))) || []
 }
 
-export async function saveHistory(userId, entries) {
-  const list = (await kv.get(HISTORY_KEY(userId))) || []
-  const newItems = entries.map(e => ({
-    id: e.id || makeId(),
-    wheelId: e.wheelId || '',
-    wheelName: e.wheelName || '',
-    itemId: e.itemId || '',
-    itemText: e.itemText || '',
-    timestamp: e.timestamp || new Date().toISOString()
+export async function saveHistory(userId, history) {
+  // 覆盖策略：直接替换整个历史数组
+  const clean = history.map(h => ({
+    id: h.id || makeId(),
+    wheelId: h.wheelId || '',
+    wheelName: h.wheelName || '',
+    itemId: h.itemId || '',
+    itemText: h.itemText || '',
+    timestamp: h.timestamp || new Date().toISOString()
   }))
-  // 追加新条目，保留历史（最多200条）
-  const merged = [...list, ...newItems].slice(0, 200)
-  await kv.set(HISTORY_KEY(userId), merged)
-  return merged
+  await kv.set(HISTORY_KEY(userId), clean.slice(0, 200))
+  return clean
 }
