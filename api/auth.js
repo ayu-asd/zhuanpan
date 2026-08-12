@@ -8,14 +8,21 @@ const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize'
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token'
 const GITHUB_API_URL = 'https://api.github.com/user'
 
+function getHeader(req, name) {
+  if (req.headers && typeof req.headers.get === 'function') {
+    return req.headers.get(name)
+  }
+  return (req.headers && req.headers[name]) || null
+}
+
 function getBaseUrl(req) {
   const configured = process.env.AUTH_REDIRECT_URI
   if (configured) {
     const u = new URL(configured)
     return `${u.protocol}//${u.host}`
   }
-  const proto = req.headers.get('x-forwarded-proto') || 'https'
-  const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
+  const proto = getHeader(req, 'x-forwarded-proto') || 'https'
+  const host = getHeader(req, 'x-forwarded-host') || getHeader(req, 'host')
   return `${proto}://${host}`
 }
 
@@ -54,10 +61,10 @@ async function getGithubUser(accessToken) {
   return await resp.json()
 }
 
-export default async function handler(req) {
+export default async function handler(req, res) {
   const baseUrl = getBaseUrl(req)
   const redirectUri = getRedirectUri(req)
-  const requestUrl = new URL(req.url, baseUrl + '/')
+  const requestUrl = new URL(req.url || '/', baseUrl + '/')
   const code = requestUrl.searchParams.get('code')
 
   if (code) {
@@ -78,13 +85,11 @@ export default async function handler(req) {
 
       const token = signToken({ userId: user.id, githubId: ghId })
       const frontUrl = `${baseUrl}/#/login?token=${encodeURIComponent(token)}`
-      return new Response(null, {
-        status: 302,
-        headers: { Location: frontUrl },
-      })
+      res.redirect(frontUrl)
     } catch (e) {
-      return new Response(`登录失败: ${e.message}`, { status: 500 })
+      res.status(500).send(`登录失败: ${e.message}`)
     }
+    return
   }
 
   const params = new URLSearchParams({
@@ -93,8 +98,5 @@ export default async function handler(req) {
     scope: 'read:user',
     state: 'login',
   })
-  return new Response(null, {
-    status: 302,
-    headers: { Location: `${GITHUB_AUTH_URL}?${params}` },
-  })
+  res.redirect(`${GITHUB_AUTH_URL}?${params}`)
 }

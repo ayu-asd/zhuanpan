@@ -1,24 +1,24 @@
 import { getHistory, saveHistory } from './_lib/kv.js'
-import { getUserFromRequest, json, unauthorized } from './_lib/jwt.js'
+import { getUserFromRequest, json, unauthorized, readBody } from './_lib/jwt.js'
 
-export default async function handler(req) {
+export default async function handler(req, res) {
   const auth = getUserFromRequest(req)
-  if (!auth) return unauthorized()
+  if (!auth) return unauthorized(res)
 
   const method = req.method || 'GET'
 
   if (method === 'POST') {
     let body
     try {
-      body = await req.json()
+      body = JSON.parse((await readBody(req)) || '[]')
     } catch {
-      return json({ error: '请求体格式错误' }, 400)
+      return json(res, { error: '请求体格式错误' }, 400)
     }
     const item = Array.isArray(body) ? body : [body]
     const merged = await saveHistory(auth.userId, item)
-    return json(merged)
+    return json(res, merged)
   }
 
   const history = await getHistory(auth.userId)
-  return json(history)
+  return json(res, history)
 }
