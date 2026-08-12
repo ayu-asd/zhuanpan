@@ -8,11 +8,21 @@ const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize'
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token'
 const GITHUB_API_URL = 'https://api.github.com/user'
 
+function getBaseUrl(req) {
+  const configured = process.env.AUTH_REDIRECT_URI
+  if (configured) {
+    const u = new URL(configured)
+    return `${u.protocol}//${u.host}`
+  }
+  const proto = req.headers.get('x-forwarded-proto') || 'https'
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
+  return `${proto}://${host}`
+}
+
 function getRedirectUri(req) {
   const configured = process.env.AUTH_REDIRECT_URI
   if (configured) return configured
-  const url = new URL(req.url)
-  return `${url.origin}/api/auth`
+  return `${getBaseUrl(req)}/api/auth`
 }
 
 function makeId() {
@@ -45,10 +55,10 @@ async function getGithubUser(accessToken) {
 }
 
 export default async function handler(req) {
-  const url = new URL(req.url)
+  const baseUrl = getBaseUrl(req)
   const redirectUri = getRedirectUri(req)
-  const code = url.searchParams.get('code')
-  const state = url.searchParams.get('state')
+  const requestUrl = new URL(req.url, baseUrl + '/')
+  const code = requestUrl.searchParams.get('code')
 
   if (code) {
     try {
@@ -67,7 +77,7 @@ export default async function handler(req) {
       await saveUser(user)
 
       const token = signToken({ userId: user.id, githubId: ghId })
-      const frontUrl = `${url.origin}/#/login?token=${encodeURIComponent(token)}`
+      const frontUrl = `${baseUrl}/#/login?token=${encodeURIComponent(token)}`
       return new Response(null, {
         status: 302,
         headers: { Location: frontUrl },
@@ -81,7 +91,7 @@ export default async function handler(req) {
     client_id: CLIENT_ID,
     redirect_uri: redirectUri,
     scope: 'read:user',
-    state: state || 'login',
+    state: 'login',
   })
   return new Response(null, {
     status: 302,
