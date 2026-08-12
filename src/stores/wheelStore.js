@@ -128,7 +128,7 @@ export const wheelStore = {
   },
 
   addHistory(entry) {
-    storage.addHistory(entry)
+    // 不再持久化到 localStorage，仅更新内存状态
     const h = data.history
     h.unshift({
       id: entry.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
@@ -139,7 +139,6 @@ export const wheelStore = {
   },
 
   clearHistory() {
-    storage.clearHistory()
     data.history = []
   },
 
@@ -156,7 +155,7 @@ export const wheelStore = {
     if (!exists) {
       data.currentWheelId = clean.length > 0 ? clean[0].id : null
     }
-    storage.persistData({ ...data, wheels: clean })
+    // 不写入 localStorage
   },
 
   setHistory(history) {
@@ -169,7 +168,7 @@ export const wheelStore = {
       timestamp: h.timestamp || new Date().toISOString()
     }))
     data.history = clean.slice(0, 100)
-    storage.persistData({ ...data, history: data.history })
+    // 不写入 localStorage
   },
 
   getLocalData() {

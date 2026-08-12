@@ -135,16 +135,44 @@ function createNewWheel() {
   wheelStore.createWheel(`转盘 ${count}`, [])
 }
 
+// 首次登录：云端数据优先，本地数据合并到云端
 async function syncAllFromCloud() {
   if (!auth.user.value) return
-  const wheels = await cloud.syncWheels(wheelStore.getLocalData().wheels)
-  wheelStore.setWheels(wheels)
-  const history = await cloud.syncHistory(wheelStore.getLocalData().history)
-  wheelStore.setHistory(history)
+  
+  const { wheels: cloudWheels, history: cloudHistory } = await cloud.syncAll()
+  
+  // 合并本地数据到云端
+  const localData = wheelStore.getLocalData()
+  const mergedWheels = mergeWheels(localData.wheels, cloudWheels)
+  
+  // 只推云端有但本地没有的（本地优先）
+  const cloudIds = new Set(cloudWheels.map(w => w.id))
+  const newWheels = localData.wheels.filter(w => !cloudIds.has(w.id))
+  
+  if (newWheels.length > 0) {
+    await cloud.pushWheels([...mergedWheels, ...newWheels])
+  }
+  
+  // 使用云端数据
+  wheelStore.setWheels(mergedWheels)
+  wheelStore.setHistory(cloudHistory)
 }
 
-function handleLogin() {
-  auth.login()
+function mergeWheels(local, cloud) {
+  const map = new Map(cloud.map(w => [w.id, w]))
+  local.forEach(item => {
+    const existing = map.get(item.id)
+    if (!existing) {
+      map.set(item.id, item)
+    } else {
+      const localTime = new Date(item.updatedAt || item.updated_at || 0)
+      const cloudTime = new Date(existing.updatedAt || existing.updated_at || 0)
+      if (localTime > cloudTime) {
+        map.set(item.id, item)
+      }
+    }
+  })
+  return [...map.values()]
 }
 
 function handleLogout() {
@@ -215,22 +243,22 @@ async function handleSpin() {
     if (result) {
       lastResult.value = result
       showResult.value = true
+      
+      // 先写云端（服务端生成 id）
       const wheel = wheelStore.currentWheel
       if (wheel) {
+        await cloud.pushHistory([{
+          wheelId: wheel.id,
+          wheelName: wheel.name,
+          itemText: result.text
+        }])
+        
+        // 成功后更新本地状态
         wheelStore.addHistory({
           wheelId: wheel.id,
           wheelName: wheel.name,
-          itemId: result.id,
           itemText: result.text
         })
-        await cloud.pushHistory([
-          {
-            wheelId: wheel.id,
-            wheelName: wheel.name,
-            itemId: result.id,
-            itemText: result.text
-          }
-        ])
       }
     }
   } finally {
