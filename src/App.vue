@@ -261,13 +261,14 @@ async function handleSpin() {
       if (wheel) {
         // 已登录时：直接写云端
         if (auth.user.value) {
-          const newHistory = [...wheelStore.history, {
+          const newEntry = {
             id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
             wheelId: wheel.id,
             wheelName: wheel.name,
             itemText: result.text,
             timestamp: new Date().toISOString()
-          }]
+          }
+          const newHistory = [...wheelStore.history, newEntry]
           await cloud.pushHistory(newHistory)
           wheelStore.setHistory(newHistory)
         } else {

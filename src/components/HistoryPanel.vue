@@ -1,5 +1,5 @@
 <template>
-  <div class="panel-card" v-if="items.length > 0">
+  <div class="panel-card" v-if="sortedItems.length > 0">
     <div class="panel-title">
       <span>开奖记录</span>
       <button class="btn btn-ghost btn-sm" @click="$emit('clear')">
@@ -8,11 +8,11 @@
     </div>
     <div class="history-list">
       <div
-        v-for="(entry, i) in items"
+        v-for="(entry, i) in sortedItems"
         :key="entry.id"
         class="history-item"
       >
-        <span class="history-index">#{{ items.length - i }}</span>
+        <span class="history-index">#{{ i + 1 }}</span>
         <span class="history-wheel">{{ entry.wheelName }}</span>
         <span class="history-result">{{ entry.itemText }}</span>
         <span class="history-time">{{ formatTime(entry.timestamp) }}</span>
@@ -22,11 +22,18 @@
 </template>
 
 <script setup>
-defineProps({
+import { computed } from 'vue'
+
+const props = defineProps({
   items: { type: Array, default: () => [] }
 })
 
 defineEmits(['clear'])
+
+// 按时间倒序（最新的在前）
+const sortedItems = computed(() => {
+  return [...props.items].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+})
 
 function formatTime(ts) {
   const d = new Date(ts)
