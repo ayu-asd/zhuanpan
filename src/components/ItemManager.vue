@@ -17,8 +17,8 @@
         class="input textarea-input"
         placeholder="每行输入一个奖项&#10;支持批量粘贴"
         rows="3"
-        @keydown.enter.prevent="addItems"
-        @keydown.shift.enter="null"
+        @keydown.enter="null"
+        @keydown.shift.enter.prevent="addItems"
       ></textarea>
       <button
         class="btn btn-primary btn-sm"
