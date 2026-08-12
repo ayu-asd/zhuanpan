@@ -141,14 +141,18 @@ function createNewWheel() {
 async function syncAllFromCloud() {
   if (!auth.user.value) return
   
+  // 登录时先从 localStorage 重新加载本地数据
+  const storage = (await import('./composables/useStorage.js')).useStorage()
+  const localData = storage.getData()
+  
   const { wheels: cloudWheels, history: cloudHistory } = await cloud.syncAll()
   
   // 首次登录：如果云端为空，推送本地数据
-  if (cloudWheels.length === 0 && wheelStore.getLocalData().wheels.length > 0) {
-    await cloud.pushWheels(wheelStore.getLocalData().wheels)
+  if (cloudWheels.length === 0 && localData.wheels.length > 0) {
+    await cloud.pushWheels(localData.wheels)
   }
-  if (cloudHistory.length === 0 && wheelStore.getLocalData().history.length > 0) {
-    await cloud.pushHistory(wheelStore.getLocalData().history)
+  if (cloudHistory.length === 0 && localData.history.length > 0) {
+    await cloud.pushHistory(localData.history)
   }
   
   // 使用云端数据
