@@ -141,16 +141,13 @@ async function syncAllFromCloud() {
   
   const { wheels: cloudWheels, history: cloudHistory } = await cloud.syncAll()
   
-  // 合并本地数据到云端
+  // 合并本地数据到云端（本地优先）
   const localData = wheelStore.getLocalData()
   const mergedWheels = mergeWheels(localData.wheels, cloudWheels)
   
-  // 只推云端有但本地没有的（本地优先）
-  const cloudIds = new Set(cloudWheels.map(w => w.id))
-  const newWheels = localData.wheels.filter(w => !cloudIds.has(w.id))
-  
-  if (newWheels.length > 0) {
-    await cloud.pushWheels([...mergedWheels, ...newWheels])
+  // 推送合并结果到云端
+  if (mergedWheels.length > 0) {
+    await cloud.pushWheels(mergedWheels)
   }
   
   // 使用云端数据
