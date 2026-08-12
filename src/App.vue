@@ -150,9 +150,15 @@ async function syncAllFromCloud() {
     await cloud.pushWheels(mergedWheels)
   }
   
+  // 合并历史记录（本地优先），推送到云端
+  const mergedHistory = mergeHistory(localData.history, cloudHistory)
+  if (mergedHistory.length > 0) {
+    await cloud.pushHistory(mergedHistory)
+  }
+  
   // 使用云端数据
   wheelStore.setWheels(mergedWheels)
-  wheelStore.setHistory(cloudHistory)
+  wheelStore.setHistory(mergedHistory)
 }
 
 function mergeWheels(local, cloud) {
@@ -164,6 +170,23 @@ function mergeWheels(local, cloud) {
     } else {
       const localTime = new Date(item.updatedAt || item.updated_at || 0)
       const cloudTime = new Date(existing.updatedAt || existing.updated_at || 0)
+      if (localTime > cloudTime) {
+        map.set(item.id, item)
+      }
+    }
+  })
+  return [...map.values()]
+}
+
+function mergeHistory(local, cloud) {
+  const map = new Map(cloud.map(h => [h.id, h]))
+  local.forEach(item => {
+    const existing = map.get(item.id)
+    if (!existing) {
+      map.set(item.id, item)
+    } else {
+      const localTime = new Date(item.timestamp || 0)
+      const cloudTime = new Date(existing.timestamp || 0)
       if (localTime > cloudTime) {
         map.set(item.id, item)
       }
