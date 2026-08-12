@@ -264,21 +264,24 @@ async function handleSpin() {
       lastResult.value = result
       showResult.value = true
       
-      // 先写云端（服务端生成 id）
-      const wheel = wheelStore.currentWheel
-      if (wheel) {
-        await cloud.pushHistory([{
-          wheelId: wheel.id,
-          wheelName: wheel.name,
-          itemText: result.text
-        }])
-        
-        // 成功后更新本地状态
-        wheelStore.addHistory({
-          wheelId: wheel.id,
-          wheelName: wheel.name,
-          itemText: result.text
-        })
+      // 只登录状态下记录历史
+      if (auth.user.value) {
+        const wheel = wheelStore.currentWheel
+        if (wheel) {
+          // 先写云端（服务端生成 id）
+          await cloud.pushHistory([{
+            wheelId: wheel.id,
+            wheelName: wheel.name,
+            itemText: result.text
+          }])
+          
+          // 成功后更新本地状态
+          wheelStore.addHistory({
+            wheelId: wheel.id,
+            wheelName: wheel.name,
+            itemText: result.text
+          })
+        }
       }
     }
   } finally {
