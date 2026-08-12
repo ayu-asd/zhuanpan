@@ -135,28 +135,23 @@ function createNewWheel() {
   wheelStore.createWheel(`转盘 ${count}`, [])
 }
 
-// 首次登录：云端数据优先，本地数据合并到云端
+// 首次登录：同步本地数据到云端（一次性）
 async function syncAllFromCloud() {
   if (!auth.user.value) return
   
   const { wheels: cloudWheels, history: cloudHistory } = await cloud.syncAll()
   
-  // 合并本地数据到云端（本地优先）
-  const localData = wheelStore.getLocalData()
-  const mergedWheels = mergeWheels(localData.wheels, cloudWheels)
-  const mergedHistory = mergeHistory(localData.history, cloudHistory)
-  
-  // 推送合并结果到云端（覆盖策略）
-  if (mergedWheels.length > 0) {
-    await cloud.pushWheels(mergedWheels)
+  // 如果云端为空，推送本地数据
+  if (cloudWheels.length === 0 && wheelStore.getLocalData().wheels.length > 0) {
+    await cloud.pushWheels(wheelStore.getLocalData().wheels)
   }
-  if (mergedHistory.length > 0) {
-    await cloud.pushHistory(mergedHistory)
+  if (cloudHistory.length === 0 && wheelStore.getLocalData().history.length > 0) {
+    await cloud.pushHistory(wheelStore.getLocalData().history)
   }
   
-  // 使用云端数据
-  wheelStore.setWheels(mergedWheels)
-  wheelStore.setHistory(mergedHistory)
+  // 无论哪种情况，都使用云端数据
+  wheelStore.setWheels(cloudWheels)
+  wheelStore.setHistory(cloudHistory)
 }
 
 function mergeWheels(local, cloud) {
@@ -264,16 +259,24 @@ async function handleSpin() {
       
       const wheel = wheelStore.currentWheel
       if (wheel) {
-        // 始终更新本地状态
-        wheelStore.addHistory({
-          wheelId: wheel.id,
-          wheelName: wheel.name,
-          itemText: result.text
-        })
-        
-        // 已登录时同步到云端（覆盖策略）
+        // 已登录时：直接写云端
         if (auth.user.value) {
-          await cloud.pushHistory(wheelStore.getLocalData().history)
+          const newHistory = [...wheelStore.history, {
+            id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+            wheelId: wheel.id,
+            wheelName: wheel.name,
+            itemText: result.text,
+            timestamp: new Date().toISOString()
+          }]
+          await cloud.pushHistory(newHistory)
+          wheelStore.setHistory(newHistory)
+        } else {
+          // 未登录：只更新本地
+          wheelStore.addHistory({
+            wheelId: wheel.id,
+            wheelName: wheel.name,
+            itemText: result.text
+          })
         }
       }
     }

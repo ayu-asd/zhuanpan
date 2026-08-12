@@ -135,8 +135,10 @@ export const wheelStore = {
       timestamp: new Date().toISOString()
     })
     if (h.length > 100) h.length = 100
-    // 持久化到 localStorage
-    storage.persistData({ ...data, history: data.history })
+    // 持久化到 localStorage（仅未登录时使用）
+    if (!window.__isUserLoggedIn) {
+      storage.persistData({ ...data, history: data.history })
+    }
   },
 
   clearHistory() {
