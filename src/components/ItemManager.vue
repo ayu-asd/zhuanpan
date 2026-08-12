@@ -17,7 +17,8 @@
         class="input textarea-input"
         placeholder="每行输入一个奖项&#10;支持批量粘贴"
         rows="3"
-        @keydown="handleKeydown"
+        @keydown.enter.prevent="addItems"
+        @keydown.shift.enter="null"
       ></textarea>
       <button
         class="btn btn-primary btn-sm"
@@ -78,13 +79,6 @@ const segmentColors = [
 
 function getColor(index) {
   return segmentColors[index % segmentColors.length]
-}
-
-function handleKeydown(e) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault()
-    addItems()
-  }
 }
 
 function addItems() {
