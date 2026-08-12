@@ -150,18 +150,21 @@ async function syncAllFromCloud() {
     await cloud.pushWheels(mergedWheels)
   }
   
-  // 合并历史记录（本地优先），只推送本地有但云端没有的
+  // 合并历史记录
   const mergedHistory = mergeHistory(localData.history, cloudHistory)
-  if (mergedHistory.length > 0 && cloudHistory.length > 0) {
+  
+  // 首次同步：直接覆盖云端历史（避免追加导致的重复）
+  // 后续操作：追加到云端
+  if (cloudHistory.length === 0) {
+    // 云端为空，直接覆盖
+    await cloud.pushHistory(mergedHistory)
+  } else if (mergedHistory.length > 0) {
     // 云端已有历史，只推本地新增的
     const cloudIds = new Set(cloudHistory.map(h => h.id))
     const newHistory = mergedHistory.filter(h => !cloudIds.has(h.id))
     if (newHistory.length > 0) {
       await cloud.pushHistory(newHistory)
     }
-  } else if (mergedHistory.length > 0) {
-    // 云端没有历史，直接推送全部
-    await cloud.pushHistory(mergedHistory)
   }
   
   // 使用云端数据
