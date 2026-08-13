@@ -243,8 +243,8 @@ watch(canvasPixelSize, () => {
   scheduleDraw()
 })
 
-watch(() => wheelStore.currentWheel, () => {
-  scheduleDraw()
+watch(() => wheelStore.currentWheel, (val) => {
+  if (val) scheduleDraw()
 }, { deep: true })
 
 defineExpose({ spin, drawWheel })

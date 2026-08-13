@@ -5,10 +5,25 @@ import { useAuth } from '../composables/useAuth.js'
 
 const storage = useStorage()
 const auth = useAuth()
-const data = reactive(storage.getData())
+const data = reactive({
+  currentWheelId: null,
+  wheels: [],
+  theme: 'clean',
+  history: []
+})
+
+applyTheme(data.theme)
+
+function id() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
+}
 
 function findCurrentWheel() {
   return data.wheels.find(w => w.id === data.currentWheelId) || null
+}
+
+function persist() {
+  if (!auth.user.value) storage.persistData({ ...data })
 }
 
 export const wheelStore = {
@@ -29,61 +44,59 @@ export const wheelStore = {
   },
 
   get currentThemeConfig() {
-    return themes[data.theme] || themes.neon
+    return themes[data.theme] || themes.clean
   },
 
   setTheme(theme) {
     if (themes[theme]) {
       data.theme = theme
-      storage.setTheme(theme)
+      if (!auth.user.value) storage.setTheme(theme)
       applyTheme(theme)
     }
   },
 
   loadWheel(id) {
     data.currentWheelId = id
-    if (!auth.user.value) storage.setCurrentWheel(id)
+    persist()
   },
 
   createWheel(name, items = []) {
-    const wheel = storage.createWheel(name, items)
-    data.wheels = storage.getWheels()
-    data.currentWheelId = wheel.id
-  },
-
-  saveCurrentWheel(name) {
-    const current = findCurrentWheel()
-    if (!current) {
-      const wheel = storage.createWheel(name, [])
-      data.wheels = storage.getWheels()
-      data.currentWheelId = wheel.id
-      return wheel
+    const wheel = {
+      id: id(),
+      name,
+      items: items.map(item => ({
+        id: id(),
+        text: item.text || item
+      })),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     }
-    storage.updateWheel(current.id, { name })
-    data.wheels = storage.getWheels()
+    data.wheels.push(wheel)
+    data.currentWheelId = wheel.id
+    persist()
   },
 
   addItems(textLines) {
     const current = findCurrentWheel()
     if (!current || !textLines || textLines.length === 0) return
     const newItems = textLines.map(text => ({
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+      id: id(),
       text
     }))
     current.items.push(...newItems)
-    storage.updateWheel(current.id, { items: [...current.items] })
-    data.wheels = storage.getWheels()
+    current.updatedAt = new Date().toISOString()
+    persist()
   },
 
   removeItem(itemId) {
     const current = findCurrentWheel()
     if (!current) return
     current.items = current.items.filter(i => i.id !== itemId)
-    storage.updateWheel(current.id, { items: [...current.items] })
-    data.wheels = storage.getWheels()
+    current.updatedAt = new Date().toISOString()
+    persist()
   },
 
-  removeItemTemp(itemId) {
+  removeItemLocal(itemId) {
     const current = findCurrentWheel()
     if (!current) return false
     const idx = current.items.findIndex(i => i.id === itemId)
@@ -97,57 +110,65 @@ export const wheelStore = {
   },
 
   renameWheel(id, name) {
-    storage.updateWheel(id, { name })
-    data.wheels = storage.getWheels()
+    const wheel = data.wheels.find(w => w.id === id)
+    if (!wheel) return
+    wheel.name = name
+    wheel.updatedAt = new Date().toISOString()
+    persist()
   },
 
-  duplicateWheel(id) {
-    const original = storage.getWheel(id)
+  duplicateWheel(wheelId) {
+    const original = data.wheels.find(w => w.id === wheelId)
     if (!original) return
-    const wheel = storage.createWheel(
-      original.name + ' (副本)',
-      original.items.map(i => ({ text: i.text }))
-    )
-    data.wheels = storage.getWheels()
+    const wheel = {
+      id: id(),
+      name: original.name + ' (副本)',
+      items: original.items.map(i => ({ id: id(), text: i.text })),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+    data.wheels.push(wheel)
     data.currentWheelId = wheel.id
+    persist()
   },
 
   deleteWheel(id) {
-    storage.deleteWheel(id)
-    data.wheels = storage.getWheels()
+    data.wheels = data.wheels.filter(w => w.id !== id)
     if (data.currentWheelId === id) {
       data.currentWheelId = data.wheels.length > 0 ? data.wheels[0].id : null
     }
+    persist()
   },
 
   clearAllItems() {
     const current = findCurrentWheel()
     if (!current) return
     current.items = []
-    storage.updateWheel(current.id, { items: [] })
-    data.wheels = storage.getWheels()
+    current.updatedAt = new Date().toISOString()
+    persist()
   },
 
   addHistory(entry) {
     const h = data.history
     h.unshift({
-      id: entry.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+      id: entry.id || id(),
       ...entry,
       timestamp: new Date().toISOString()
     })
     if (h.length > 100) h.length = 100
-    storage.saveHistory(h)
+    persist()
   },
 
   clearHistory() {
     data.history = []
+    persist()
   },
 
   setWheels(wheels) {
     const clean = wheels.map(w => ({
       ...w,
       items: (w.items || []).map(item => ({
-        id: item.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+        id: item.id || id(),
         text: item.text || ''
       }))
     }))
@@ -160,7 +181,7 @@ export const wheelStore = {
 
   setHistory(history) {
     const clean = history.map(h => ({
-      id: h.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+      id: h.id || id(),
       wheelId: h.wheelId || '',
       wheelName: h.wheelName || '',
       itemId: h.itemId || '',
@@ -170,8 +191,16 @@ export const wheelStore = {
     data.history = clean.slice(0, 100)
   },
 
-  getLocalData() {
+  getData() {
     return { wheels: [...data.wheels], history: [...(data.history || [])] }
+  },
+
+  loadFromStorage() {
+    const local = storage.getData()
+    data.wheels = local.wheels
+    data.history = local.history
+    data.currentWheelId = local.currentWheelId
+    data.theme = local.theme
   }
 }
 
@@ -183,5 +212,3 @@ export function applyTheme(themeName) {
     root.style.setProperty(key, val)
   })
 }
-
-applyTheme(data.theme)

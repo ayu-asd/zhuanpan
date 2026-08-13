@@ -10,6 +10,8 @@ export default async function handler(req, res) {
 
   return json(res, {
     id: user.id,
+    userId: user.id,
+    githubId: auth.githubId,
     login: user.login,
     name: user.name,
     avatar_url: user.avatar_url,

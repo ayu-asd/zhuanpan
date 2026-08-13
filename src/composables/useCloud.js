@@ -1,7 +1,5 @@
 import { useAuth } from './useAuth.js'
 
-let syncLock = false
-
 export function useCloud() {
   const auth = useAuth()
 
@@ -18,22 +16,20 @@ export function useCloud() {
   }
 
   async function pushWheels(wheels) {
-    if (!auth.user.value || syncLock) return
-    syncLock = true
+    if (!auth.user.value) return
     try {
       await api('/api/wheels', { method: 'POST', body: JSON.stringify(wheels) })
-    } finally {
-      syncLock = false
+    } catch (e) {
+      console.error('同步转盘失败:', e)
     }
   }
 
   async function pushHistory(entries) {
-    if (!auth.user.value || syncLock) return
-    syncLock = true
+    if (!auth.user.value) return
     try {
       await api('/api/history', { method: 'POST', body: JSON.stringify(entries) })
-    } finally {
-      syncLock = false
+    } catch (e) {
+      console.error('同步历史失败:', e)
     }
   }
 
@@ -47,7 +43,8 @@ export function useCloud() {
       const cloudWheels = wheelsResp.ok ? await wheelsResp.json() : []
       const cloudHistory = historyResp.ok ? await historyResp.json() : []
       return { wheels: cloudWheels, history: cloudHistory }
-    } catch {
+    } catch (e) {
+      console.error('云端同步失败:', e)
       return { wheels: [], history: [] }
     }
   }

@@ -33,11 +33,11 @@ const props = defineProps({
   result: { type: Object, default: null }
 })
 
-const emit = defineEmits(['close', 'remove-temp', 'remove-save'])
+const emit = defineEmits(['close', 'remove-local', 'remove-save'])
 
 function removeAndClose(mode) {
   if (mode === 'temp') {
-    emit('remove-temp', props.result?.id)
+    emit('remove-local', props.result?.id)
   } else {
     emit('remove-save', props.result?.id)
   }

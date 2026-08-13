@@ -29,7 +29,6 @@ export async function getHistory(userId) {
 }
 
 export async function saveHistory(userId, history) {
-  // 覆盖策略：直接替换整个历史数组（倒序：最新的在前）
   const clean = history.slice().reverse().map(h => ({
     id: h.id || makeId(),
     wheelId: h.wheelId || '',

@@ -2,9 +2,6 @@
   <div class="panel-card">
     <div class="panel-title">
       <span>转盘管理</span>
-      <button v-if="showSave" class="btn btn-primary btn-sm" @click="saveCurrent">
-        保存
-      </button>
     </div>
 
     <div v-if="wheels.length === 0" class="empty-state">
@@ -62,16 +59,14 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from 'vue'
+import { ref, nextTick } from 'vue'
 
 const props = defineProps({
   wheels: { type: Array, default: () => [] },
-  currentWheelId: { type: String, default: null },
-  showSave: { type: Boolean, default: true }
+  currentWheelId: { type: String, default: null }
 })
 
 const emit = defineEmits([
-  'save',
   'load',
   'rename',
   'duplicate',
@@ -81,12 +76,6 @@ const emit = defineEmits([
 const renamingWheel = ref(null)
 const renameText = ref('')
 const renameInputRef = ref(null)
-
-function saveCurrent() {
-  const wheel = props.wheels.find(w => w.id === props.currentWheelId)
-  const defaultName = `转盘 ${props.wheels.length + 1}`
-  emit('save', wheel?.name || defaultName)
-}
 
 function startRename(wheel) {
   renamingWheel.value = wheel.id

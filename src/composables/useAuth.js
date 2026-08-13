@@ -4,7 +4,6 @@ const TOKEN_KEY = 'zhuanpan-token'
 
 const user = ref(null)
 const loading = ref(false)
-const synced = ref(false)
 
 function getToken() {
   return localStorage.getItem(TOKEN_KEY)
@@ -73,7 +72,6 @@ export function useAuth() {
   return {
     user,
     loading,
-    synced,
     getToken,
     api,
     checkLoginFromUrl,

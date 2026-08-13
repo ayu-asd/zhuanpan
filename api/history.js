@@ -14,8 +14,9 @@ export default async function handler(req, res) {
     } catch {
       return json(res, { error: '请求体格式错误' }, 400)
     }
-    const item = Array.isArray(body) ? body : [body]
-    const merged = await saveHistory(auth.userId, item)
+    body = Array.isArray(body) ? body : [body]
+    // 替换整个历史数组（客户端传完整数据）
+    const merged = await saveHistory(auth.userId, body)
     return json(res, merged)
   }
 

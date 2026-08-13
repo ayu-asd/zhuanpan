@@ -92,7 +92,7 @@ export function useStorage() {
   }
 
   function getTheme() {
-    return load().theme || 'neon'
+    return load().theme || 'clean'
   }
 
   function setTheme(theme) {
@@ -118,6 +118,12 @@ export function useStorage() {
     return load().history.slice(0, limit)
   }
 
+  function saveHistory(history) {
+    const data = load()
+    data.history = history.slice(0, 100)
+    save(data)
+  }
+
   function clearHistory() {
     const data = load()
     data.history = []
@@ -136,6 +142,7 @@ export function useStorage() {
     getTheme,
     setTheme,
     addHistory,
+    saveHistory,
     getHistory,
     clearHistory
   }
